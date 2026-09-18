@@ -33,7 +33,8 @@ public sealed class OcrEngine : IDisposable
                 return false;
             }
             _engine = new TesseractEngine(TessDataPath, "eng", EngineMode.LstmOnly);
-            _engine.SetVariable("tessedit_char_whitelist", "xyXY0123456789., ");
+            // Preserve signs and surrounding letters for strict token validation. A numeric whitelist
+            // erases this rejection evidence (e.g. x-101.53 becomes the plausible positive x101.53).
             return true;
         }
         catch (Exception ex)

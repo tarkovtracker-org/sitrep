@@ -11,5 +11,7 @@
     <ProjectReference Include="..\..\src\Sitrep.Core\Sitrep.Core.csproj" />
     <None Include="..\..\src\Sitrep.Core\Data\l81-apollyon.json" Link="data\l81-apollyon.json" CopyToOutputDirectory="PreserveNewest" />
     <Compile Include="..\..\src\Sitrep.Desktop\AppConfig.cs" Link="AppConfig.cs" />
+    <Compile Include="..\..\src\Sitrep.Desktop\ProcessIdentityCache.cs" Link="ProcessIdentityCache.cs" />
+    <Compile Include="..\..\src\Sitrep.Desktop\TrayRegistration.cs" Link="TrayRegistration.cs" />
   </ItemGroup>
 </Project>

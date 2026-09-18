@@ -5,8 +5,16 @@ namespace Sitrep.Core;
 
 public static partial class CoordinateParser
 {
-    [GeneratedRegex(@"(?<![A-Za-z0-9])(?<axis>[XxYy])\s*(?<body>[+-]?[0-9][0-9.,]*)", RegexOptions.CultureInvariant)]
+    // Keep numeric-like malformed bodies (xBAD1, x.77, x + 101.53), but not alphabetic words or lone labels.
+    // Surrogates are not delimiters either; an adjacent supplementary Unicode letter is still part of a token.
+    [GeneratedRegex(@"(?<![\p{L}\p{M}\p{N}\p{Pc}\p{Cf}\p{Cs}+\-\u2212])(?<axis>[XxYy])(?=\s*[0-9.,+\-\u2212]|\S*[0-9])\s*(?<body>[+-]?[0-9][0-9.,]*)?", RegexOptions.CultureInvariant)]
     private static partial Regex AxisTokenRegex();
+
+    private static bool IsTokenContinuation(char value) =>
+        char.IsLetterOrDigit(value) || char.IsSurrogate(value) || value is '+' or '-' or '\u2212'
+        || char.GetUnicodeCategory(value) is UnicodeCategory.NonSpacingMark or UnicodeCategory.SpacingCombiningMark
+            or UnicodeCategory.EnclosingMark or UnicodeCategory.ConnectorPunctuation or UnicodeCategory.Format
+            or UnicodeCategory.LetterNumber or UnicodeCategory.OtherNumber;
 
     public static bool TryParse(string? rawText, out MapCoordinate coordinate, out string rejectionReason)
     {
@@ -29,7 +37,7 @@ public static partial class CoordinateParser
         {
             char axis = char.ToUpperInvariant(m.Groups["axis"].Value[0]);
             string body = m.Groups["body"].Value;
-            int tokenEnd = m.Groups["body"].Index + m.Groups["body"].Length;
+            int tokenEnd = m.Index + m.Length;
             if (tokenEnd < rawText.Length)
             {
                 char next = rawText[tokenEnd];
@@ -38,7 +46,7 @@ public static partial class CoordinateParser
                     rejectionReason = axis == 'X' ? "BAD_X_PRECISION" : "BAD_Y_PRECISION";
                     return false;
                 }
-                if (char.IsLetter(next))
+                if (IsTokenContinuation(next))
                 {
                     rejectionReason = "PARTIAL_TOKEN";
                     return false;

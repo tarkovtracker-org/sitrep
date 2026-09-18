@@ -107,10 +107,11 @@ public partial class App : Application
             Shutdown(1);
             return;
         }
-        var state = new AssistantState(table, liveEnabled: false);
+        // Always observing input; explicit gestures still require process/title/test-mode foreground guards.
+        var state = new AssistantState(table, liveEnabled: true);
         _service = new AssistantService(state, _ocr, config);
         _input = new InputMonitor();
-        _input.SetEnabled(false);
+        _input.SetEnabled(true);
         var overlay = new OverlayWindow(config);
         var main = new MainWindow(_service, _input, config, overlay, startupError);
         MainWindow = main;

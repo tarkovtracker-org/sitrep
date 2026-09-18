@@ -19,6 +19,42 @@ public sealed class StateTests
         new(req.Sequence, req.Generation, req.Role, req.OriginRevision, false, default, "garbage", reason);
 
     [Fact]
+    public void LiveIsEnabledByDefaultSoNoManualActivationIsNeeded()
+    {
+        var s = new AssistantState(SmallTable());
+        Assert.True(s.LiveEnabled);
+        Assert.Equal(DisplayStatuses.SetMortar, s.Status);
+        Assert.NotNull(s.BeginOrigin(1, 0, 0, 0, 0, 10, 10));
+    }
+
+    [Fact]
+    public void OutsideMapOriginClearsUsableOriginWithSpecificStatus()
+    {
+        var s = new AssistantState(SmallTable());
+        s.Complete(Ok(s.BeginOrigin(1, 0, 0, 0, 0, 10, 10), new MapCoordinate(100, 100)));
+        var retry = s.BeginOrigin(1, 0, 0, 0, 0, 10, 10);
+        Assert.True(s.Complete(Fail(retry, DisplayStatuses.OutsideMap)));
+        Assert.Equal(DisplayStatuses.OutsideMap, s.Status);
+        Assert.Null(s.ConfirmedOrigin);
+        Assert.Null(s.Pending);
+    }
+
+    [Fact]
+    public void OutsideMapTargetKeepsOriginAndDropsSolution()
+    {
+        var s = new AssistantState(SmallTable());
+        s.Complete(Ok(s.BeginOrigin(1, 0, 0, 0, 0, 10, 10), new MapCoordinate(100, 100)));
+        s.Complete(Ok(s.BeginTarget(1, 0, 0, 0, 0, 10, 10).Request!, new MapCoordinate(101, 102)));
+        Assert.Equal(DisplayStatuses.Ready, s.Status);
+        var (bad, _) = s.BeginTarget(1, 0, 0, 0, 0, 10, 10);
+        Assert.True(s.Complete(Fail(bad!, DisplayStatuses.OutsideMap)));
+        Assert.Equal(DisplayStatuses.OutsideMap, s.Status);
+        Assert.NotNull(s.ConfirmedOrigin);
+        Assert.Null(s.ActiveTarget);
+        Assert.Null(s.ElevationMil);
+    }
+
+    [Fact]
     public void TargetWithoutOriginDoesNotEnqueue()
     {
         var s = new AssistantState(SmallTable());

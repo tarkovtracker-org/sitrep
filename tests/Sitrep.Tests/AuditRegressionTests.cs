@@ -66,18 +66,23 @@ public sealed class AuditRegressionTests
     [Fact]
     public void HeldKeysAndDisabledCaptureDoNotCreatePhantomEdges()
     {
-        var edges = new InputEdges();
-        edges.Seed(1, true);
-        Assert.False(edges.Pressed(1, true, true));
-        Assert.False(edges.Pressed(1, false, true));
-        Assert.True(edges.Pressed(1, true, true));
-        Assert.False(edges.Pressed(1, true, true));
-        Assert.False(edges.Pressed(2, true, false));
-        Assert.False(edges.Pressed(2, true, true));
-        // The toggle remains sampled with enabled=true even when capture is disabled.
-        Assert.True(edges.Pressed(10, true, true));
-        Assert.False(edges.Pressed(10, false, true));
-        Assert.True(edges.Pressed(10, true, true));
+        // Reseeding with a key already held must not fire; only a release followed by a fresh press is an edge,
+        // and nothing is queued while disabled. (InputSampling replaced the former per-key InputEdges helper.)
+        var idle = new InputSample(1, 0, 0, true, false, false, false, false, false, false);
+        var sampler = new InputSampling();
+        sampler.Reset(true, idle with { Origin = true });
+        sampler.Sample(idle with { Origin = true }, 1);
+        Assert.False(sampler.TryTake(out _));
+        sampler.Sample(idle, 2);
+        Assert.False(sampler.TryTake(out _));
+        sampler.Sample(idle with { Origin = true }, 3);
+        Assert.True(sampler.TryTake(out var pressed));
+        Assert.Equal(InputAction.Origin, pressed.Action);
+        sampler.Sample(idle with { Origin = true }, 4);
+        Assert.False(sampler.TryTake(out _));
+        sampler.Reset(false, idle);
+        sampler.Sample(idle with { Target = true }, 5);
+        Assert.False(sampler.TryTake(out _));
     }
 
     [Theory]

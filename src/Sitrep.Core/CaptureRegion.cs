@@ -39,4 +39,24 @@ public static class RoiBuilder
 
     public static bool Overlaps(CaptureRegion a, CaptureRegion b) =>
         a.X < b.X + b.Width && b.X < a.X + a.Width && a.Y < b.Y + b.Height && b.Y < a.Y + a.Height;
+
+    /// <summary>Map square height as a fraction of the game client height (880 px on a 2560x1440 reference capture).</summary>
+    public const double MapHeightFraction = 0.611;
+
+    /// <summary>Centered square map area of the game client, in client-relative pixels.</summary>
+    public static CaptureRegion GetCenteredMapRegion(int clientWidth, int clientHeight)
+    {
+        if (clientWidth <= 0 || clientHeight <= 0)
+        {
+            return new CaptureRegion(0, 0, 0, 0);
+        }
+        int size = (int)Math.Round(clientHeight * MapHeightFraction);
+        return new CaptureRegion((clientWidth - size) / 2, (clientHeight - size) / 2, size, size);
+    }
+
+    public static bool IsPointInsideMap(int clientX, int clientY, int clientWidth, int clientHeight)
+    {
+        var map = GetCenteredMapRegion(clientWidth, clientHeight);
+        return !map.IsEmpty && clientX >= map.X && clientX < map.X + map.Width && clientY >= map.Y && clientY < map.Y + map.Height;
+    }
 }

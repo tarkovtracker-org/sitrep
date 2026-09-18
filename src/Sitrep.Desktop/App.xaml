@@ -98,19 +98,6 @@
                 </Trigger>
             </Style.Triggers>
         </Style>
-        <Style x:Key="DangerButtonStyle" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-            <Setter Property="Foreground" Value="{StaticResource ErrorBrush}"/>
-            <Setter Property="BorderBrush" Value="#55E0655F"/>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#22E0655F"/>
-                    <Setter Property="BorderBrush" Value="{StaticResource ErrorBrush}"/>
-                </Trigger>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Opacity" Value="0.45"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
 
         <!-- Inputs -->
         <Style TargetType="TextBox">

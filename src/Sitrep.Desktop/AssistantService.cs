@@ -20,12 +20,14 @@ public sealed class AssistantService : IDisposable
     private readonly Func<(int X, int Y)?> _getCursor;
     private Retry? _retry;
     private long _snapshotTime;
+    private Func<bool>? _inputStillCurrent;
 
     private readonly AssistantState _state;
     private readonly Func<Bitmap, RecognitionResult> _recognize;
     private readonly Func<IntPtr> _getForeground;
     private readonly Func<IntPtr, bool> _windowExists;
     private readonly Func<IntPtr, bool>? _allowedForTest;
+    private readonly Func<IntPtr, CaptureRegion?> _clientBounds;
     private readonly AppConfig _config;
     private readonly Dispatcher _dispatcher = Dispatcher.CurrentDispatcher;
     private readonly LatestCaptureWorker<Work> _worker;
@@ -34,20 +36,22 @@ public sealed class AssistantService : IDisposable
     public event Action? Changed;
 
     public AssistantService(AssistantState state, OcrEngine ocr, AppConfig config)
-        : this(state, config, image => RecognitionPipeline.Recognize(image, ocr), Win32.GetForegroundWindow, Win32.IsWindow)
+        : this(state, config, image => RecognitionPipeline.Recognize(image, ocr), Win32.GetForegroundWindow, Win32.IsWindow,
+            clientBounds: Win32.GetClientRegion)
     {
     }
 
     // One fakeable boundary for deterministic packaged orchestration tests; production uses Win32 + live OCR above.
     internal AssistantService(AssistantState state, AppConfig config, Func<Bitmap, RecognitionResult> recognize,
         Func<IntPtr> foreground, Func<IntPtr, bool> windowExists, Func<IntPtr, bool>? allowedForTest = null,
-        Func<(int X, int Y)?>? cursor = null)
+        Func<(int X, int Y)?>? cursor = null, Func<IntPtr, CaptureRegion?>? clientBounds = null)
     {
         _state = state;
         _recognize = recognize;
         _getForeground = foreground;
         _windowExists = windowExists;
         _allowedForTest = allowedForTest;
+        _clientBounds = clientBounds ?? (_ => null);
         _config = config;
         _getCursor = cursor ?? (() => Win32.GetCursorPos(out var point) ? (point.X, point.Y) : null);
         _retryTimer = new DispatcherTimer(DispatcherPriority.Input) { Interval = TimeSpan.FromMilliseconds(50) };
@@ -72,27 +76,61 @@ public sealed class AssistantService : IDisposable
         {
             return true;
         }
-        return !string.IsNullOrWhiteSpace(_config.ForegroundTitleContains)
-            && Win32.GetWindowTitle(hwnd).Contains(_config.ForegroundTitleContains, StringComparison.OrdinalIgnoreCase);
+        return MatchesGameProcess(Win32.GetProcessName(hwnd))
+            || (!string.IsNullOrWhiteSpace(_config.ForegroundTitleContains)
+                && Win32.GetWindowTitle(hwnd).Contains(_config.ForegroundTitleContains, StringComparison.OrdinalIgnoreCase));
     }
 
-    public void Request(CaptureRole role, IntPtr hwnd, int cursorX, int cursorY, Func<CaptureRequest, Bitmap?> capture)
+    /// <summary>
+    /// Case-insensitive substring match of the executable name against the configured game process, so
+    /// launcher-style names such as <c>WARDOGS-Win64-Shipping</c> still match <c>wardogs</c>.
+    /// </summary>
+    public bool MatchesGameProcess(string processName)
+    {
+        string wanted = System.IO.Path.GetFileNameWithoutExtension(_config.GameProcessName.Trim());
+        return wanted.Length > 0 && !string.IsNullOrWhiteSpace(processName)
+            && processName.Contains(wanted, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // Clicks outside the centered map square cannot carry a coordinate label; reject before capture and OCR.
+    // Desktop test mode targets arbitrary windows, and unknown client bounds fail open: OCR remains the real gate.
+    private bool IsOutsideMap(IntPtr hwnd, int cursorX, int cursorY) =>
+        !_config.DesktopTestMode
+        && _clientBounds(hwnd) is { } client
+        && !RoiBuilder.IsPointInsideMap(cursorX - client.X, cursorY - client.Y, client.Width, client.Height);
+
+    public void Request(CaptureRole role, IntPtr hwnd, int cursorX, int cursorY, Func<CaptureRequest, Bitmap?> capture,
+        Func<bool>? inputStillCurrent = null, bool anchorValid = true, long? inputTimestamp = null, DateTimeOffset? eventTime = null)
     {
         _dispatcher.VerifyAccess();
-        if (_disposed || !_state.LiveEnabled || !IsForegroundAllowed(hwnd) || _getForeground() != hwnd)
+        if (_disposed || !_state.LiveEnabled || !IsForegroundAllowed(hwnd) || _getForeground() != hwnd
+            || inputStillCurrent?.Invoke() == false)
         {
             return;
         }
         var roi = ScreenCapture.BuildRoi(cursorX, cursorY, _config);
         var req = role == CaptureRole.Origin
-            ? _state.BeginOrigin(hwnd.ToInt64(), cursorX, cursorY, roi.X, roi.Y, roi.Width, roi.Height)
-            : _state.BeginTarget(hwnd.ToInt64(), cursorX, cursorY, roi.X, roi.Y, roi.Width, roi.Height).Request;
+            ? _state.BeginOrigin(hwnd.ToInt64(), cursorX, cursorY, roi.X, roi.Y, roi.Width, roi.Height, eventTime)
+            : _state.BeginTarget(hwnd.ToInt64(), cursorX, cursorY, roi.X, roi.Y, roi.Width, roi.Height, eventTime).Request;
         if (req is null)
         {
             Changed?.Invoke();
             return;
         }
         DiscardPending();
+        _inputStillCurrent = inputStillCurrent;
+        if (!anchorValid)
+        {
+            CompleteFailure(req, DisplayStatuses.Moved);
+            Changed?.Invoke();
+            return;
+        }
+        if (IsOutsideMap(hwnd, cursorX, cursorY))
+        {
+            CompleteFailure(req, DisplayStatuses.OutsideMap);
+            Changed?.Invoke();
+            return;
+        }
         // Snapshot on the input dispatcher, before any wait for recognition. The request owns the anchor/ROI.
         Bitmap? image = null;
         string? captureError = null;
@@ -114,7 +152,7 @@ public sealed class AssistantService : IDisposable
         }
         else
         {
-            _snapshotTime = System.Diagnostics.Stopwatch.GetTimestamp();
+            _snapshotTime = inputTimestamp ?? System.Diagnostics.Stopwatch.GetTimestamp();
             _retry = new Retry(req, image, capture, _config.DebugMode);
             _retryTimer.Start();
         }
@@ -137,7 +175,7 @@ public sealed class AssistantService : IDisposable
             _state.OnGameWindowClosed();
             return false;
         }
-        if (_getForeground() != hwnd || !IsForegroundAllowed(hwnd))
+        if (_getForeground() != hwnd || !IsForegroundAllowed(hwnd) || _inputStillCurrent?.Invoke() == false)
         {
             _state.OnForegroundLost();
             return false;
@@ -232,7 +270,7 @@ public sealed class AssistantService : IDisposable
             {
                 _state.OnGameWindowClosed();
             }
-            else if (_getForeground() != hwnd || !IsForegroundAllowed(hwnd))
+            else if (_getForeground() != hwnd || !IsForegroundAllowed(hwnd) || _inputStillCurrent?.Invoke() == false)
             {
                 _state.OnForegroundLost();
             }

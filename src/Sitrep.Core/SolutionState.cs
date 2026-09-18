@@ -32,7 +32,7 @@ public sealed record OcrCompletion(
 
 public static class DisplayStatuses
 {
-    public const string SetMortar = "SET MORTAR WITH F8";
+    public const string SetMortar = "SET MORTAR (CTRL+MMB)";
     public const string Reading = "READING";
     public const string OriginSet = "ORIGIN SET—AWAITING TARGET";
     public const string Ready = "READY";
@@ -41,12 +41,13 @@ public static class DisplayStatuses
     public const string Moved = "MOVED—TRY AGAIN";
     public const string TableUnavailable = "TABLE UNVERIFIED/UNAVAILABLE";
     public const string OutOfRange = "OUT OF RANGE";
+    public const string OutsideMap = "OUTSIDE MAP AREA";
 
     public static string TargetFailed(string reason) =>
         string.IsNullOrWhiteSpace(reason) ? "TARGET OCR FAILED" : $"TARGET OCR FAILED: {reason}";
 
     public static string OriginFailed(string reason) =>
-        string.IsNullOrWhiteSpace(reason) ? "ORIGIN OCR FAILED—RETRY F8" : $"ORIGIN OCR FAILED: {reason}—RETRY F8";
+        string.IsNullOrWhiteSpace(reason) ? "ORIGIN OCR FAILED—RETRY CTRL+MMB" : $"ORIGIN OCR FAILED: {reason}—RETRY CTRL+MMB";
 }
 
 public sealed class AssistantState
@@ -69,7 +70,7 @@ public sealed class AssistantState
     public int Generation => _generation;
     public int OriginRevision => _originRevision;
 
-    public AssistantState(FiringTable? table, bool liveEnabled = false)
+    public AssistantState(FiringTable? table, bool liveEnabled = true)
     {
         Table = table;
         LiveEnabled = liveEnabled;
@@ -104,7 +105,7 @@ public sealed class AssistantState
         }
     }
 
-    public CaptureRequest BeginOrigin(long hwnd, int cursorX, int cursorY, int roiX, int roiY, int roiW, int roiH)
+    public CaptureRequest BeginOrigin(long hwnd, int cursorX, int cursorY, int roiX, int roiY, int roiW, int roiH, DateTimeOffset? eventTime = null)
     {
         lock (_gate)
         {
@@ -116,13 +117,13 @@ public sealed class AssistantState
             BearingDegrees = null;
             ElevationMil = null;
             Status = DisplayStatuses.Reading;
-            var req = new CaptureRequest(_nextSequence++, _generation, CaptureRole.Origin, _originRevision, hwnd, DateTimeOffset.UtcNow, cursorX, cursorY, roiX, roiY, roiW, roiH);
+            var req = new CaptureRequest(_nextSequence++, _generation, CaptureRole.Origin, _originRevision, hwnd, eventTime ?? DateTimeOffset.UtcNow, cursorX, cursorY, roiX, roiY, roiW, roiH);
             Pending = req;
             return req;
         }
     }
 
-    public (CaptureRequest? Request, string Status) BeginTarget(long hwnd, int cursorX, int cursorY, int roiX, int roiY, int roiW, int roiH)
+    public (CaptureRequest? Request, string Status) BeginTarget(long hwnd, int cursorX, int cursorY, int roiX, int roiY, int roiW, int roiH, DateTimeOffset? eventTime = null)
     {
         lock (_gate)
         {
@@ -136,7 +137,7 @@ public sealed class AssistantState
             BearingDegrees = null;
             ElevationMil = null;
             Status = DisplayStatuses.Reading;
-            var req = new CaptureRequest(_nextSequence++, _generation, CaptureRole.Target, _originRevision, hwnd, DateTimeOffset.UtcNow, cursorX, cursorY, roiX, roiY, roiW, roiH);
+            var req = new CaptureRequest(_nextSequence++, _generation, CaptureRole.Target, _originRevision, hwnd, eventTime ?? DateTimeOffset.UtcNow, cursorX, cursorY, roiX, roiY, roiW, roiH);
             Pending = req;
             return (req, Status);
         }
@@ -175,8 +176,7 @@ public sealed class AssistantState
                     RangeMeters = null;
                     BearingDegrees = null;
                     ElevationMil = null;
-                    Status = completion.RejectionReason == DisplayStatuses.Moved
-                        ? DisplayStatuses.Moved : DisplayStatuses.OriginFailed(completion.RejectionReason);
+                    Status = FailureStatus(completion.RejectionReason, DisplayStatuses.OriginFailed);
                     return true;
                 }
                 ConfirmedOrigin = completion.Coordinate;
@@ -195,8 +195,7 @@ public sealed class AssistantState
                     RangeMeters = null;
                     BearingDegrees = null;
                     ElevationMil = null;
-                    Status = completion.RejectionReason == DisplayStatuses.Moved
-                        ? DisplayStatuses.Moved : DisplayStatuses.TargetFailed(completion.RejectionReason);
+                    Status = FailureStatus(completion.RejectionReason, DisplayStatuses.TargetFailed);
                     return true;
                 }
                 if (!ConfirmedOrigin.HasValue)
@@ -240,6 +239,10 @@ public sealed class AssistantState
             }
         }
     }
+
+    // MOVED and OUTSIDE MAP AREA are pre-OCR rejections with their own display text; everything else is an OCR failure.
+    private static string FailureStatus(string reason, Func<string, string> ocrFailed) =>
+        reason is DisplayStatuses.Moved or DisplayStatuses.OutsideMap ? reason : ocrFailed(reason);
 
     public void Clear()
     {

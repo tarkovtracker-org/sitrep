@@ -1,12 +1,12 @@
 # WARDOGS Mortar Assistant — MVP build specification
 
-Revision: 2 • Research checked: 16 September 2026
+Revision: 3 • Research checked: 16 September 2026 • Guarded-capture policy reconciled: 18 September 2026
 
 ## 1. Objective and execution contract
 
 Implement the smallest maintainable Windows/C# utility that supports:
 
-**Set mortar with F8 → hover a map target → ordinary middle-click ping → read visible coordinates → display range, compass bearing, and a source-backed L81 elevation setting.**
+**Set mortar with Ctrl+middle-click → hover a map target → Shift+middle-click → read visible coordinates → display range, compass bearing, and a source-backed L81 elevation setting.**
 
 Prioritize correct results and explicit failures, then reproducible deployment, usability, and measured performance. Visual polish is not a deliverable. A failure message is preferable to a plausible but incorrect solution.
 
@@ -31,7 +31,7 @@ The current Schaulers page uses 100 m grid squares, describes interpolated sight
 
 Unproven until tested: OS cursor alignment with the game map point, label offsets near edges, capture timing after a ping, OCR accuracy, display-mode compatibility, and the firing data's agreement with the user's game build.
 
-Do not claim developer approval, anti-cheat compatibility, or compliance merely because the utility uses screenshots. The published WARDOGS terms restrict unauthorized third-party software; permission for this exact workflow has not been established by this specification. Default live capture to disabled. Explain this uncertainty before enabling live operation and recommend explicit publisher/developer confirmation before in-game use. Offline image tests do not require the game to run. [S4]
+Do not claim developer approval, anti-cheat compatibility, or compliance merely because the utility uses screenshots. The published WARDOGS terms restrict unauthorized third-party software; permission for this exact workflow has not been established. Revision 3 uses always-live **guarded input observation**, with no Enable/F10 barrier: only explicit user capture gestures in an allowed foreground window can capture pixels. This technical policy is not permission for live use. Obtain explicit publisher/developer approval before starting SITREP alongside the game or performing Gate E; offline image tests and local non-game desktop checks do not require game access. `docs/VALIDATION.md` is authoritative for executed evidence and remaining permission-gated checks. [S4]
 
 Never read/write game memory, inject code, hook the renderer, modify game files, inspect game network traffic, synthesize game input, automate aiming/firing, or bypass/hide from anti-cheat. Do not request administrator privileges or disable security software as a compatibility fix. Foreground window identity and ordinary public window metadata are permitted technical inputs; that is not authorization from the game publisher.
 
@@ -49,23 +49,22 @@ Keep model/native binaries out of ordinary generated-source commits. A short, id
 
 ## 4. Minimal user interface and controls
 
-Provide a plain startup/control window with status and an obvious Exit action. This is required lifecycle functionality, not a settings application. Provide a separate small, non-activating, click-through gameplay overlay. Closing the control window must exit the whole application and dispose its workers/handles, even if the overlay is still open. No tray system is required.
+Provide one control window (status, hotkey guide, overlay lock, settings) that exits the whole application when closed and disposes its workers/handles, even if the overlay is still open. Minimizing it may hide it only after native `Shell_NotifyIcon` registration succeeds; otherwise retain taskbar access. Re-register after `TaskbarCreated` and reveal a hidden window if recovery fails. No additional UI frameworks. Provide a separate small, non-activating, click-through gameplay overlay that may be temporarily unlocked for repositioning and re-locked in place.
 
-Defaults:
+Defaults (revision 3; the earlier F8/F7/F10 scheme is superseded):
 
 | Control | Action |
 |---|---|
-| F8 | Capture/re-establish mortar origin |
-| Middle mouse | Observe normal ping; capture target when enabled |
-| F7 | Capture target without depending on ping timing |
-| F9 | Clear origin, target, and solution |
-| F10 | Enable/disable live operation |
+| Ctrl + middle mouse | Capture/re-establish mortar origin |
+| Shift + middle mouse | Capture target |
+| F9 | Clear origin, target, and solution (only while the game or SITREP's control window is in the foreground) |
+| F8 / F7 | Keyboard aliases for origin / target |
 
-F7 uses the same target pipeline; it is not a second calculator implementation. Normal game mouse/keyboard input must not be consumed or synthesized.
+An unmodified middle click is the game's own ping and never triggers SITREP capture. Both triggers use the same capture pipeline; there is no second calculator implementation. Input observation starts enabled, but capture requires a non-SITREP foreground window matching the configured executable substring or optional title fallback, or explicit desktop test mode. Unknown/nonmatching identity blocks capture. When client bounds are known, clicks outside the centered map square reject as `OUTSIDE MAP AREA`; desktop test mode skips this map guard. Unknown bounds do not bypass the capture backend's client/monitor bounds checks. Normal game mouse/keyboard input must not be consumed or synthesized.
 
-Keep a small local JSON configuration only for proven necessities: foreground window match, input bindings, cursor-relative capture offsets/scale, optional verified coordinate bounds, and debug mode. Ship documented defaults. No calibration or keybinding GUI is required.
+Keep a small local JSON configuration only for proven necessities: game process name, optional foreground title match, cursor-relative capture offsets/scale, overlay position, desktop test mode, and debug mode. Ship documented defaults. No calibration or keybinding GUI is required.
 
-Identify the real foreground game window using verified window metadata or a user-configured match. Do not invent an executable name. Unknown window identity must leave capture disabled, not silently remove the guard. Recheck the foreground HWND before capture and before publishing a result. A separately explicit desktop test mode may target a local test window; it must not bypass guards in normal operation.
+Identify the real foreground game window by its executable name (`GameProcessName`, default `wardogs`, user-editable and shown alongside the last observed foreground executable so a wrong default is obvious) or a user-configured title match. Unknown window identity must leave capture disabled, not silently remove the guard. Recheck the foreground HWND before capture and before publishing a result. A separately explicit desktop test mode may target a local test window; it must not bypass guards in normal operation.
 
 Show weapon/data profile, range in metres, azimuth in degrees, elevation in game MIL, origin, target, and concise status. Mark table-based output as such. Keep confirmed origin in memory only; the user must reset it after relocating, dying, or changing maps. Do not attempt automatic session/map/origin detection beyond recognizing that the attached game window closed.
 
@@ -75,11 +74,11 @@ Use a small explicit state model and immutable request/result records, not an ev
 
 Every capture request owns its sequence number, role (origin/target), origin revision, foreground HWND, event timestamp, cursor anchor, ROI, and captured pixels. Never combine X from one frame with Y from another.
 
-With no usable confirmed origin, target triggers show `SET MORTAR WITH F8`; they do not enqueue OCR or supersede a pending origin capture.
+With no usable confirmed origin, target triggers show `SET MORTAR (CTRL+MMB)`; they do not enqueue OCR or supersede a pending origin capture.
 
 Immediately invalidate the active firing solution when a new origin/target request begins. During processing show `READING`, not an old solution presented as current.
 
-A successful origin capture establishes the origin and clears the previous target. An origin capture failure leaves no *usable* newly confirmed origin: require a successful F8 before targeting. Previous values may remain diagnostic-only, never silently active after an attempted origin change.
+A successful origin capture establishes the origin and clears the previous target. An origin capture failure leaves no *usable* newly confirmed origin: require a successful origin capture before targeting. Previous values may remain diagnostic-only, never silently active after an attempted origin change.
 
 A target failure preserves the confirmed origin but invalidates the active target/solution. It must show `TARGET OCR FAILED` or a specific reason; old numbers must not look actionable. A valid out-of-range target may show range/bearing but must show `OUT OF RANGE` instead of elevation.
 
@@ -89,7 +88,7 @@ Keep one OCR worker/engine instance and at most one pending newest request. Repl
 
 ## 6. Input, capture, and localization
 
-Start with high-bit `GetAsyncKeyState` polling plus explicit up-to-down edge detection; do not use its unreliable low-bit press-history flag. Approximately 10 ms while active is an initial setting, not a guaranteed sampling rate. Initialize previous states on enable/focus transitions so held buttons do not create phantom requests. Keep input observation independent of OCR work. [S12]
+Use high-bit `GetAsyncKeyState` polling plus explicit up-to-down edge detection; never its unreliable low-bit press-history flag. A dedicated sampling thread polls approximately every 10 ms independently of synchronous UI/capture/OCR work. Freeze modifiers, foreground identity, timestamp and cursor with each edge; dispatch through a bounded mailbox. Plain MMB and Ctrl+Shift+MMB do not capture; modifier changes while MMB is held do not create new edges. F8/F7 are aliases, with origin taking precedence for simultaneous origin/target triggers; F9 supersedes captures from the same sample and clears older queued work. Reseed on enable/focus transitions; focus round-trips invalidate pending work even if the UI was blocked. Reject moved or excessively delayed anchors, never retarget a queued gesture to the later cursor position. [S12]
 
 Polling can miss a press that begins and ends between samples. Measure missed/duplicate triggers under game load. Only if demonstrated, replace that input component with documented Raw Input/`WM_INPUT` background observation; do not introduce a global mouse hook. Do not request input capture or suppress legacy messages. No second concurrent input implementation. [S13]
 
@@ -123,7 +122,7 @@ Whitespace and decimal-comma normalization are acceptable after token isolation.
 
 A character whitelist and engine confidence are hints, not proof. Preserve raw text and, when available, token boxes/confidence for diagnosis. Never average disagreeing coordinates or join partial results from different captures. If confidence is shown, identify it as an engine score, not an estimated probability of correctness.
 
-Debug mode, off by default, may store only user-triggered ROI images and small structured records: request/role, cursor/ROI/DPI, timings, raw text, parsed tokens, rejection reason, and source profile. Store under local application data with bounded retention; do not capture unrelated windows. No continuous screenshots, network upload, or telemetry. Gitignore local fixture/capture/log directories and exclude private images from CI artifacts.
+Debug mode, off by default, may store only user-triggered ROI images and small structured records: request/role, cursor/ROI/DPI, timings, raw text, parsed tokens, rejection reason, and source profile. Store under local application data with at most 50 image/metadata pairs (100 files), collision-resistant names, serialized writes and whole-record retention. Roll back failed writes and repair interrupted-write remnants on subsequent successful saves; diagnostics are best effort on locked/unwritable storage. Do not capture unrelated windows. No continuous screenshots, network upload, or telemetry. Gitignore local fixture/capture/log directories and exclude private images from CI artifacts.
 
 ## 8. Coordinate math and ballistic data
 
@@ -202,7 +201,7 @@ Ignore `bin`, `obj`, IDE caches, local config, downloaded caches, output ZIPs, l
 
 **Gate D — Integrated trial build.** Wire input → captured request → OCR → state → math/table → overlay. Add `--self-test` to exercise packaged native OCR/model loading with a small synthetic label image; identify it as a dependency smoke test. Run clean verification and launch the published executable. Exercise input/focus behavior in a local desktop test window when the game is unavailable. Supply a trial artifact and report remaining real-game checks honestly.
 
-**Gate E — User game validation.** After the user resolves permission concerns, validate on the actual Windows/display/game configuration. Record it. Check original labels against both origin and target captures, normal MMB delivery, F7 fallback, map edges/pan/zoom, moving the cursor immediately after clicking, rapid targets, F9/F10 during processing, alt-tab, and game exit. Do not add unrelated features while waiting.
+**Gate E — User game validation.** After the user resolves permission concerns, validate on the actual Windows/display/game configuration. Record it. Check original labels against both origin and target captures, Ctrl/Shift+MMB delivery with the game's own ping still passing through, map edges/pan/zoom and the OUTSIDE MAP AREA guard, moving the cursor immediately after clicking, rapid targets, F9 during processing, alt-tab, overlay unlock/drag/lock, tray minimize/restore, and game exit. Do not add unrelated features while waiting.
 
 Initial trial acceptance targets—not promised performance:
 

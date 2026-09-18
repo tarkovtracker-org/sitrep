@@ -16,3 +16,7 @@ TestResults/
 !**/tessdata/README.md
 MapCords.png
 MapPing.png
+# Logo master for scripts/generate-icons.ps1 (~1.3 MB); only the generated Assets/ files are committed.
+/SITREP.png
+# Preserve local numbered session reports; current decisions/evidence belong in docs/VALIDATION.md.
+/[0-9][0-9][0-9]-*.md

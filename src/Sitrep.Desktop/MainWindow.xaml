@@ -1,128 +1,146 @@
 <Window x:Class="Sitrep.Desktop.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="SITREP — Mortar Assistant" Width="480" Height="620"
-        ResizeMode="NoResize" WindowStartupLocation="CenterScreen"
+        Title="SITREP" Width="440" Height="600"
+        MinWidth="400" MinHeight="480" Icon="pack://application:,,,/Assets/app.ico"
+        ResizeMode="CanResizeWithGrip" WindowStartupLocation="CenterScreen"
         Background="{StaticResource BgBrush}" Foreground="{StaticResource TextBrush}"
         FontFamily="Segoe UI" FontSize="13">
-    <Grid Margin="20">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="20">
 
-        <!-- Header: identity + live state pill -->
-        <Grid Grid.Row="0">
-            <StackPanel VerticalAlignment="Center">
-                <TextBlock Text="SITREP" FontSize="22" FontWeight="Bold"/>
-                <TextBlock Text="WARDOGS Mortar Assistant" Style="{StaticResource CaptionStyle}"/>
-            </StackPanel>
-            <Border x:Name="LivePill" HorizontalAlignment="Right" VerticalAlignment="Center"
-                    CornerRadius="12" Padding="10,5" BorderThickness="1"
-                    Background="{StaticResource CardBrush}" BorderBrush="{StaticResource CardBorderBrush}">
-                <StackPanel Orientation="Horizontal">
-                    <Ellipse x:Name="LiveDot" Width="8" Height="8" VerticalAlignment="Center"
-                             Fill="{StaticResource DisabledBrush}"/>
-                    <TextBlock x:Name="LivePillText" Margin="7,0,0,0" FontSize="11" FontWeight="SemiBold"
-                               VerticalAlignment="Center" Text="LIVE OFF"/>
+            <!-- Header -->
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <Image Grid.Column="0" Source="pack://application:,,,/Assets/logo-64.png" Width="40" Height="40"
+                       Margin="0,0,12,0" VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality"/>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="SITREP" FontSize="22" FontWeight="Bold"/>
+                    <TextBlock Text="WARDOGS mortar companion" Style="{StaticResource CaptionStyle}"/>
+                </StackPanel>
+                <Border x:Name="GamePill" Grid.Column="2" VerticalAlignment="Center"
+                        CornerRadius="12" Padding="10,5" BorderThickness="1"
+                        Background="{StaticResource CardBrush}" BorderBrush="{StaticResource CardBorderBrush}">
+                    <StackPanel Orientation="Horizontal">
+                        <Ellipse x:Name="GameDot" Width="8" Height="8" VerticalAlignment="Center"
+                                 Fill="{StaticResource DisabledBrush}"/>
+                        <TextBlock x:Name="GamePillText" Margin="7,0,0,0" FontSize="11" FontWeight="SemiBold"
+                                   VerticalAlignment="Center" Text="GAME NOT FOUND"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- Startup problem -->
+            <Border x:Name="StartupBanner" Margin="0,14,0,0" CornerRadius="6" Padding="10,8"
+                    Background="{StaticResource BannerBgBrush}" BorderBrush="{StaticResource WarningBrush}"
+                    BorderThickness="1" Visibility="Collapsed">
+                <DockPanel LastChildFill="True">
+                    <TextBlock DockPanel.Dock="Left" Text="⚠" FontSize="13" VerticalAlignment="Top" Foreground="{StaticResource WarningBrush}"/>
+                    <TextBlock x:Name="StartupBannerText" Margin="8,0,0,0" FontSize="12" TextWrapping="Wrap"/>
+                </DockPanel>
+            </Border>
+
+            <!-- Mortar assistant -->
+            <Border Style="{StaticResource CardBorderStyle}" Margin="0,16,0,0">
+                <StackPanel>
+                    <Grid>
+                        <TextBlock Text="MORTAR ASSISTANT" Style="{StaticResource SectionHeaderStyle}"/>
+                        <TextBlock x:Name="ProfileText" HorizontalAlignment="Right" FontSize="11"
+                                   Foreground="{StaticResource TextDimBrush}" Text="L81 · table-backed"/>
+                    </Grid>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                        <Ellipse x:Name="StatusDot" Width="9" Height="9" VerticalAlignment="Center"
+                                 Fill="{StaticResource InfoBrush}"/>
+                        <TextBlock x:Name="StatusText" Margin="8,0,0,0" FontSize="13" FontWeight="SemiBold"
+                                   Text="SET MORTAR (CTRL+MMB)" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <TextBlock x:Name="SolutionText" Style="{StaticResource MonoValueStyle}" Margin="17,4,0,0"
+                               Foreground="{StaticResource TextDimBrush}" Text="—"/>
+
+                    <Border Background="{StaticResource FieldBrush}" CornerRadius="6" Margin="0,14,0,0" Padding="12,10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="ORIGIN (MORTAR)" Style="{StaticResource SectionHeaderStyle}" FontSize="10"/>
+                                <TextBlock Text="Ctrl + Middle click" FontSize="14" FontWeight="Bold"
+                                           Foreground="{StaticResource AccentBrush}" Margin="0,2,0,0"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="TARGET" Style="{StaticResource SectionHeaderStyle}" FontSize="10"/>
+                                <TextBlock Text="Shift + Middle click" FontSize="14" FontWeight="Bold"
+                                           Foreground="{StaticResource AccentBrush}" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                    <TextBlock Style="{StaticResource CaptionStyle}" Margin="0,8,0,0" TextWrapping="Wrap"
+                               Text="Hover the map point, then click. Setting a new origin or target replaces the old one. F9 clears everything."/>
                 </StackPanel>
             </Border>
-        </Grid>
 
-        <!-- Startup warning (hidden when everything loaded) -->
-        <Border x:Name="StartupBanner" Grid.Row="1" Margin="0,14,0,0" CornerRadius="6" Padding="10,8"
-                Background="{StaticResource BannerBgBrush}" BorderBrush="{StaticResource WarningBrush}"
-                BorderThickness="1" Visibility="Collapsed">
-            <StackPanel Orientation="Horizontal">
-                <TextBlock Text="⚠" FontSize="13" VerticalAlignment="Top"
-                           Foreground="{StaticResource WarningBrush}"/>
-                <TextBlock x:Name="StartupBannerText" Margin="8,0,0,0" FontSize="12"
-                           TextWrapping="Wrap" VerticalAlignment="Center"/>
-            </StackPanel>
-        </Border>
-
-        <!-- Firing solution card -->
-        <Border Grid.Row="2" Style="{StaticResource CardBorderStyle}" Margin="0,16,0,0" VerticalAlignment="Top">
-            <StackPanel>
-                <Grid>
-                    <TextBlock Text="FIRING SOLUTION" Style="{StaticResource SectionHeaderStyle}"/>
-                    <TextBlock x:Name="WeaponText" HorizontalAlignment="Right" FontSize="11"
-                               Foreground="{StaticResource TextDimBrush}" Text="L81 · table-backed"/>
-                </Grid>
-                <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
-                    <Ellipse x:Name="StatusDot" Width="9" Height="9" VerticalAlignment="Center"
-                             Fill="{StaticResource InfoBrush}"/>
-                    <TextBlock x:Name="StatusText" Margin="8,0,0,0" FontSize="13" FontWeight="SemiBold"
-                               Text="SET MORTAR WITH F8" TextWrapping="Wrap" VerticalAlignment="Center"/>
+            <!-- Overlay -->
+            <Border Style="{StaticResource CardBorderStyle}" Margin="0,12,0,0">
+                <StackPanel>
+                    <TextBlock Text="OVERLAY" Style="{StaticResource SectionHeaderStyle}"/>
+                    <TextBlock Style="{StaticResource CaptionStyle}" Margin="0,4,0,10" TextWrapping="Wrap"
+                               Text="Shown while the game is in the foreground; click-through during play. Unlock to drag it anywhere, then double-click it to lock and save."/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="OverlayPosText" Grid.Column="0" VerticalAlignment="Center" FontSize="12"
+                                   Text="Default (top-right)"/>
+                        <Button x:Name="OverlayLockButton" Grid.Column="1" Content="Unlock overlay" MinWidth="120"
+                                Style="{StaticResource PrimaryButtonStyle}" Margin="0,0,8,0" Click="OverlayLockButton_Click"/>
+                        <Button Grid.Column="2" Content="Reset" Click="ResetOverlayButton_Click"/>
+                    </Grid>
                 </StackPanel>
-                <StackPanel Margin="0,16,0,0">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock x:Name="ElevationValue" FontFamily="Consolas" FontSize="40"
-                                   FontWeight="Bold" Text="—" VerticalAlignment="Bottom"/>
-                        <TextBlock Margin="8,0,0,8" FontSize="14" VerticalAlignment="Bottom"
-                                   Foreground="{StaticResource TextDimBrush}" Text="MIL"/>
-                    </StackPanel>
-                    <TextBlock Text="ELEVATION (UNCORRECTED TABLE)" Style="{StaticResource SectionHeaderStyle}" Margin="0,2,0,0"/>
+            </Border>
+
+            <!-- Settings (auto-saved) -->
+            <Border Style="{StaticResource CardBorderStyle}" Margin="0,12,0,0">
+                <StackPanel>
+                    <Grid>
+                        <TextBlock Text="SETTINGS" Style="{StaticResource SectionHeaderStyle}"/>
+                        <TextBlock x:Name="SavedText" HorizontalAlignment="Right" FontSize="11"
+                                   Foreground="{StaticResource SuccessBrush}" Text="Saved" Visibility="Hidden"/>
+                    </Grid>
+
+                    <TextBlock Text="Game executable name" Margin="0,10,0,4" FontSize="12"/>
+                    <TextBox x:Name="GameProcessBox" LostFocus="GameProcessBox_LostFocus" KeyDown="GameProcessBox_KeyDown"/>
+                    <TextBlock x:Name="ForegroundHintText" Style="{StaticResource CaptionStyle}" Margin="0,4,0,0" TextWrapping="Wrap"
+                               Text="Matched against the foreground window's process, e.g. wardogs."/>
+
+                    <CheckBox x:Name="DesktopTestBox" Content="Desktop test mode (other foreground windows)"
+                              Margin="0,12,0,0" Checked="Setting_Changed" Unchecked="Setting_Changed"/>
+                    <CheckBox x:Name="AlwaysOnTopBox" Content="Keep this window on top"
+                              Margin="0,8,0,0" Checked="Setting_Changed" Unchecked="Setting_Changed"/>
+                    <Grid Margin="0,8,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <CheckBox x:Name="DebugModeBox" Grid.Column="0" Content="Save debug captures (50 image/record pairs)"
+                                  Checked="Setting_Changed" Unchecked="Setting_Changed"/>
+                        <Button Grid.Column="1" Content="Open folder" Padding="8,3" FontSize="11" Click="OpenCapturesButton_Click"/>
+                    </Grid>
+
+                    <TextBlock x:Name="SettingsErrorText" Margin="0,8,0,0" FontSize="12" TextWrapping="Wrap"
+                               Foreground="{StaticResource ErrorBrush}" Visibility="Collapsed"/>
                 </StackPanel>
-                <Grid Margin="0,16,0,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0">
-                        <TextBlock Text="RANGE" Style="{StaticResource SectionHeaderStyle}"/>
-                        <TextBlock x:Name="RangeValue" FontFamily="Consolas" FontSize="20" Margin="0,2,0,0" Text="—"/>
-                    </StackPanel>
-                    <StackPanel Grid.Column="1">
-                        <TextBlock Text="BEARING" Style="{StaticResource SectionHeaderStyle}"/>
-                        <TextBlock x:Name="BearingValue" FontFamily="Consolas" FontSize="20" Margin="0,2,0,0" Text="—"/>
-                    </StackPanel>
-                </Grid>
-                <Border Height="1" Margin="0,16,0,0" Background="{StaticResource CardBorderBrush}"/>
-                <Grid Margin="0,12,0,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0">
-                        <TextBlock Text="ORIGIN (F8)" Style="{StaticResource SectionHeaderStyle}"/>
-                        <TextBlock x:Name="OriginValue" Style="{StaticResource MonoValueStyle}" Margin="0,2,0,0" Text="—"/>
-                    </StackPanel>
-                    <StackPanel Grid.Column="1">
-                        <TextBlock Text="TARGET (F7 / MMB)" Style="{StaticResource SectionHeaderStyle}"/>
-                        <TextBlock x:Name="TargetValue" Style="{StaticResource MonoValueStyle}" Margin="0,2,0,0" Text="—"/>
-                    </StackPanel>
-                </Grid>
-            </StackPanel>
-        </Border>
+            </Border>
 
-        <!-- Actions -->
-        <Grid Grid.Row="3" Margin="0,16,0,0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-            <Button x:Name="EnableButton" Grid.Column="0" Content="Enable live"
-                    Style="{StaticResource PrimaryButtonStyle}" Margin="0,0,5,0" Click="EnableButton_Click"/>
-            <Button x:Name="ClearButton" Grid.Column="1" Content="Clear"
-                    Margin="5,0,5,0" Click="ClearButton_Click"/>
-            <Button x:Name="SettingsButton" Grid.Column="2" Content="Settings"
-                    Margin="5,0,5,0" Click="SettingsButton_Click"/>
-            <Button x:Name="ExitButton" Grid.Column="3" Content="Exit"
-                    Style="{StaticResource DangerButtonStyle}" Margin="5,0,0,0" Click="ExitButton_Click"/>
-        </Grid>
-
-        <!-- Footer hints -->
-        <StackPanel Grid.Row="4" Margin="0,14,0,0">
-            <TextBlock Style="{StaticResource CaptionStyle}" TextWrapping="Wrap"
-                       Text="F8 set origin  ·  F7 / middle-click set target  ·  F9 clear  ·  F10 disable live. Hotkeys work while live capture is on; use Enable live to start."/>
-            <TextBlock Style="{StaticResource CaptionStyle}" Margin="0,4,0,0" TextWrapping="Wrap"
-                       Text="The overlay is click-through; closing this window exits the app."/>
+            <TextBlock Style="{StaticResource CaptionStyle}" Margin="0,14,0,0" TextWrapping="Wrap" HorizontalAlignment="Center"
+                       Text="Minimize uses the tray when available; otherwise use the taskbar. Closing exits."/>
         </StackPanel>
-    </Grid>
+    </ScrollViewer>
 </Window>

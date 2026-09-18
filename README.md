@@ -1,12 +1,13 @@
 # SITREP — WARDOGS companion app (mortar solver trial)
 
-Windows/C# helper: F8 sets mortar origin, middle-click/F7 captures target from visible map coordinates, shows range, bearing, and source-backed L81 MIL (uncorrected table).
+Windows/C# helper: Ctrl+middle-click sets the mortar origin, Shift+middle-click captures a target from the visible map coordinates, and the overlay shows range, bearing, and source-backed L81 MIL (uncorrected table).
 
 ## Controls
-- F8: capture origin. F7 or middle-click: capture target. F9: clear. F10: enable/disable live, including when disabled. Live starts disabled. Capture hotkeys are inert until enabled; held keys are reseeded on enable/focus changes.
-- Keep the cursor still through the second snapshot (scheduled after 50 ms); movement rejects with `MOVED—TRY AGAIN`. Clipped ROIs or overlap with any SITREP window reject rather than OCR partial/self-generated labels.
-- Control window: live-state pill, firing-solution card (elevation, range, bearing, origin/target), startup warning banner, and Enable / Clear / Settings / Exit buttons.
-- Settings window: game window title match, desktop test mode, capture region (ROI), overlay position reset, debug captures. Validated on Save and written to config.json.
+- **Ctrl + Middle click**: capture origin (mortar position). **Shift + Middle click**: capture target. **F9**: clear (acts only while the game or the SITREP control window is in the foreground, so F9 in another application never discards your origin). F8/F7 are keyboard aliases for origin/target. A plain middle click is the game's own ping and never triggers SITREP (the button state is only polled to detect the Ctrl/Shift chord edge; nothing is consumed or synthesized).
+- Always live, guarded: there is no Enable/F10 step. Capture requires a non-SITREP foreground window matching the configured executable substring or optional title fallback; explicit desktop test mode instead allows other foreground windows. Unknown/nonmatching identity blocks capture. Alt-tabbing away hides the locked overlay and drops pending work; held keys are reseeded on focus changes. With known client bounds, clicks outside the centered map square reject before capture (`OUTSIDE MAP AREA`); desktop test mode skips this map guard. Unknown bounds still cannot bypass the capture backend's client/monitor bounds checks.
+- Input is sampled independently of UI/capture work; the chord modifiers, foreground and cursor anchor are frozen at the sampled edge. Plain MMB and Ctrl+Shift+MMB do not trigger capture; adding modifiers while MMB is held does not trigger. F9 clears older queued gestures. Keep the cursor still through the second snapshot (scheduled after 50 ms); movement or a >500 ms dispatch/retry delay rejects with `MOVED—TRY AGAIN`. Clipped ROIs or overlap with any SITREP window reject rather than OCR partial/self-generated labels.
+- Control window (single, resizable, optionally always-on-top): game status pill (`IN GAME` / `GAME RUNNING` / `GAME NOT FOUND`), current status and solution line, hotkey guide, overlay lock/reset, and auto-saved settings (game executable name, desktop test mode, keep-on-top, debug captures). Minimizing hides it only after successful tray registration; otherwise it stays on the taskbar. The icon re-registers after Explorer restarts; failed recovery makes the window accessible again. The tray menu offers Open, Lock/Unlock overlay, Exit. Closing exits.
+- Overlay HUD (over the game): status, large elevation, range, bearing, origin/target, hotkey legend. Click-through while locked. **Unlock overlay** in the control window or tray menu, drag it anywhere, then double-click it to lock and save the position.
 
 ## Baseline
 - .NET 10, WPF, Windows 11 x64, borderless/windowed, SDR. Other modes unverified.
@@ -15,8 +16,8 @@ Windows/C# helper: F8 sets mortar origin, middle-click/F7 captures target from v
 1. `pwsh -ExecutionPolicy Bypass -File scripts/setup-model.ps1`
 2. `dotnet build Sitrep.slnx -c Release`
 3. `src/Sitrep.Desktop/bin/Release/net10.0-windows/win-x64/Sitrep.exe`
-- Two windows appear by design: the control window (status, firing solution, buttons) and a semi-transparent always-on-top overlay readout for use over the game. The overlay is click-through so it cannot hold buttons — that is why they are separate. Closing the control window exits everything.
-- Exit via control window Exit (kills overlay/workers). Config: %LocalAppData%/Sitrep/config.json — edit it via the Settings window or by hand. Set ForegroundTitleContains to your game window title; empty leaves capture disabled. Overlay position: OverlayLeft/OverlayTop in config (defaults to top-right; Settings can reset it). Debug captures: %LocalAppData%/Sitrep/captures (50 files max).
+- The control window is the only window you interact with; the overlay HUD appears over the game automatically while the game is in the foreground and is click-through so it cannot hold buttons. Closing the control window (or tray → Exit) exits everything.
+- Config: %LocalAppData%/Sitrep/config.json — settings in the control window save immediately; you can also edit it by hand. `GameProcessName` (default `wardogs`) is matched case-insensitively as a substring of the foreground window's executable name; the Settings card shows the last non-SITREP foreground app to help you find the right name. `ForegroundTitleContains` remains as an optional title-match fallback. Overlay position: OverlayLeft/OverlayTop (`null`/absent = default top-right; negative values from monitors left of or above the primary are kept; Reset restores the default). Debug captures: %LocalAppData%/Sitrep/captures (50 records max: each is one PNG plus matching JSON, "Open folder" button).
 
 ## Verification and local trial artifact
 - `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/verify.ps1` — public clean-clone gate: checksum-pinned model setup, locked restore, zero-warning Release build, tests, locked self-contained publish, packaged self-test/integration checks, failure-path probes, and all five committed negative images.
@@ -25,12 +26,12 @@ Windows/C# helper: F8 sets mortar origin, middle-click/F7 captures target from v
 - Actual results and remaining display/game checks: [docs/VALIDATION.md](docs/VALIDATION.md). Synthetic OCR success is dependency evidence, not proof of game-font accuracy.
 
 ## Testing in game
-1. Confirm publisher permission first.
+1. Confirm explicit publisher/developer permission **before running SITREP alongside the game**. Input observation starts automatically; foreground guards are not permission. Gate E remains incomplete.
 2. Open the game in borderless/windowed (SDR), open its map.
-3. In config.json set ForegroundTitleContains to match the game window title, start the app, press Enable (or F10).
-4. Stand at the mortar, press F8 (overlay shows ORIGIN SET).
-5. Hover a target on the map, middle-click (or F7). Overlay should show the same numbers as the map labels plus range/bearing/MIL.
-6. Try F9 (clears), F10 twice (disable/enable), alt-tab out and back (overlay hides while live and unfocused, then shows WINDOW LOST until a fresh target; old solution is gone). Game-window closure clears the origin too.
+3. Start the app. The header pill should read `GAME RUNNING`, and `IN GAME` once the game window is in the foreground. If it stays at `GAME NOT FOUND`, type the executable name shown as "Last seen app" into *Game executable name* while the game is focused.
+4. Stand at the mortar, hover its map position and press Ctrl + middle click (overlay shows ORIGIN SET—AWAITING TARGET).
+5. Hover a target on the map, press Shift + middle click. Overlay should show the same numbers as the map labels plus range/bearing/MIL.
+6. Try F9 (clears), alt-tab out and back (overlay hides while unfocused, then shows WINDOW LOST until a fresh target; old solution is gone), a click in the gutter outside the map (`OUTSIDE MAP AREA`), and Unlock overlay → drag → double-click to lock. Game-window closure clears the origin too.
 
 ## Diagnostics
 `Sitrep.exe` is a GUI-subsystem process. Do not trust direct PowerShell invocation to wait or set `$LASTEXITCODE`; use the same helper as CI (it redirects output and checks the actual process exit):
@@ -47,7 +48,7 @@ Invoke-PackagedCheck $exe @('--diagnose-image', (Resolve-Path 'tests/fixtures-ne
 #   '--crop', '900,640,300,180', '--report', "$PWD/out/origin.json")
 ```
 
-Self-test is dependency smoke. Image diagnosis shares live OCR; exit 0 means accepted, 2 means OCR/dependency rejection, 1 means invocation/file/error failure. Reports preserve raw recipe text and engine confidence (not a correctness probability). Debug mode stores bounded PNG/JSON records (50 files total) locally; the old unbounded `records.log` is retired.
+Self-test is dependency smoke. Image diagnosis shares live OCR; exit 0 means accepted, 2 means OCR/dependency rejection, 1 means invocation/file/error failure. Reports preserve raw recipe text and engine confidence (not a correctness probability). Debug mode stores at most 50 complete PNG/JSON records (100 files) locally, with unique names and serialized writes across SITREP instances. Retention removes pairs together; failed writes are rolled back and later saves repair interrupted-write remnants. Locked/unwritable storage remains best effort and never changes the OCR result. The old unbounded `records.log` is retired.
 
 Missing config uses defaults without writing a file. Invalid/unreadable config is preserved and produces one actionable startup error; repair or rename `%LocalAppData%/Sitrep/config.json`. Settings saves validated values atomically.
 

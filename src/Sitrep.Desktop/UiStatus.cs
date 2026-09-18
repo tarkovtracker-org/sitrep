@@ -27,7 +27,7 @@ public static class StatusLevelMapper
         {
             return StatusLevel.Working;
         }
-        if (status == DisplayStatuses.WindowLost || status == DisplayStatuses.Moved)
+        if (status == DisplayStatuses.WindowLost || status == DisplayStatuses.Moved || status == DisplayStatuses.OutsideMap)
         {
             return StatusLevel.Warning;
         }

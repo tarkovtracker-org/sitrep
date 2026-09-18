@@ -1,18 +1,32 @@
-Implement the WARDOGS Mortar Assistant using the attached/repository-root BUILD_SPEC.md as the product specification, while respecting higher-priority instructions and existing repository guidance.
+# AGENT PROMPT: SITREP Post-MVP Engineering Directive
 
-Read the spec, inspect the current repository and available environment, and begin the smallest implementation that satisfies its gates. Do not rewrite the plan, create alternative architectures, or build cosmetic features.
+You are working on the WARDOGS Mortar Assistant (`SITREP`). The foundational trial MVP (130+ unit/integration tests, offline coordinate math, native Tesseract OCR packaging, custom branding, and packaged self-test) is complete and verified.
 
-Before coding, report briefly:
-1. Existing repository state and instructions.
-2. Whether Windows execution, the required SDK, actual screenshot fixtures, and source-backed firing data are available.
-3. Which checks can run here and which require the user's machine.
+Your mandate is post-MVP excellence: production hardening, UI/UX refinement, performance optimization, and Gate E real-game readiness.
 
-Prioritize the uncertain integration points: actual capture/label alignment, native OCR packaging, stale-result prevention, and independently checked L81 data. Keep pure logic testable without Windows and image replay on the same recognition path as live capture.
+## Core Engineering Principles
 
-Preserve existing work. Keep one short docs/VALIDATION.md with executed checks, evidence, decisions, and blockers. Distinguish synthetic tests, supplied-image tests, packaged Windows execution, and real-game validation. Never invent test results or approval.
+1. **Frontier Quality & Polish:**
+   - Act as a principal systems engineer. Do not write skeletal code, temporary shortcuts, or leave unfinished `TODO`s.
+   - Deliver cohesive, production-grade solutions. If touching the UI or HUD overlay, ensure clean layouts, crisp high-DPI scaling, clear typography, and subtle micro-feedback.
+   - Optimize hot execution paths: keep coordinate math sub-millisecond and minimize GC allocations during frame capture and OCR preprocessing.
 
-Do not spend repeatedly on a blocker without new evidence. After two distinct unsuccessful fixes, state the exact missing input or failing observation and continue only independent useful work. Use one implementation owner; any delegated review should be narrowly scoped and must not produce a competing implementation.
+2. **Relentless Closed-Loop Verification:**
+   - Always verify changes end-to-end. Run the test suite (`dotnet test tests/Sitrep.Tests -c Release`) and canonical verification (`pwsh -ExecutionPolicy Bypass -File scripts/verify.ps1`).
+   - Fix all compiler warnings and analyzer diagnostics immediately (`EnforceCodeStyleInBuild` is active).
+   - If a test, diagnostic probe, or build fails, formulate precise hypotheses, inspect diagnostic outputs, and autonomously iterate until all checks pass cleanly.
 
-Deliver reproducible build/test/publish commands, a Windows trial ZIP when actually built, source/data notices, and concise run/diagnostic instructions. Live mode must start disabled, normal game input must pass through, and unavailable/unverified data must never produce a plausible MIL setting.
+3. **Proactive Edge-Case Sweeping:**
+   - Actively audit and safeguard against real-world friction points:
+     - Multi-monitor setups with mixed DPI scaling factors.
+     - Rapid hotkey spamming, key re-registration, and focus-loss races.
+     - Transient OCR noise, corrupted crops, and edge-of-screen boundary conditions.
+     - Clean worker lifecycle draining and unmanaged resource disposal.
 
-Stop at “Ready for user trial” when its evidence requirements are met. If they cannot be met here, report “Implemented” with the remaining checks and blockers. Do not claim game validation without a real run, and do not add a feature roadmap. Wait for the user's test results before further iteration.
+4. **Non-Negotiable Safety & Architectural Invariants:**
+   - **Zero Anti-Cheat Surface:** Never read/write game process memory, never inject DLLs, never use global low-level hooks, never synthesize input, and never attempt anti-cheat evasion. SITREP is an external, screen-reading assistant only.
+   - **Fail-Closed Guarantee:** Any unverified firing table or rejected OCR reading must immediately invalidate solutions and fail closed (`OUT OF RANGE`, `TABLE UNVERIFIED`, `TARGET OCR FAILED`). Never guess or emit a plausible unverified MIL setting.
+   - **Local-Only Privacy:** No telemetry, no network calls, no cloud dependencies. Keep user screenshots and private test fixtures local (`captures/`, `fixtures-local/` remain gitignored).
+
+5. **Progress & Validation Record:**
+   - Maintain `docs/VALIDATION.md` as the single source of truth for executed checks, benchmark data, architectural decisions, and resolved findings.
